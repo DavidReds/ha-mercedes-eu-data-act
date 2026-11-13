@@ -2,14 +2,14 @@
   "domain": "mercedes_eu_data_act",
   "name": "Mercedes-Benz EU Data Act",
   "codeowners": [
-    "@your-github-username"
+    "DavidReds"
   ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://developer.mercedes-benz.com/products/3rd_party_data_access_eu_data_act/details",
   "integration_type": "hub",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/your-github-username/ha-mercedes-eu-data-act/issues",
+  "issue_tracker": "https://github.com/DavidReds/ha-mercedes-eu-data-act/issues",
   "requirements": [
     "aiokafka>=0.11.0",
     "aiohttp>=3.9.0"
