@@ -1,17 +1,17 @@
-"""OAuth2 Token Provider and Async Kafka Consumer for Mercedes-Benz EU Data Act."""
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import ssl
+import threading
 import time
 from typing import Any, Callable
 
 import aiohttp
-from aiokafka import AIOKafkaConsumer
-from aiokafka.abc import AbstractTokenProvider
-from aiokafka.errors import KafkaError
+from kafka import KafkaConsumer
+from kafka.errors import KafkaError
+from kafka.sasl.oauth import AbstractTokenProvider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ class MBOAuthTokenProvider(AbstractTokenProvider):
         client_id: str,
         client_secret: str,
         scope: str,
+        loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
         """Initialize the token provider."""
         self._session = session
@@ -33,13 +34,14 @@ class MBOAuthTokenProvider(AbstractTokenProvider):
         self._client_id = client_id
         self._client_secret = client_secret
         self._scope = scope
+        self._loop = loop
         self._access_token: str | None = None
         self._expires_at: float = 0.0
-        self._lock = asyncio.Lock()
+        self._async_lock = asyncio.Lock()
 
-    async def token(self) -> str:
-        """Return a valid OAuth2 bearer token, refreshing if necessary."""
-        async with self._lock:
+    async def async_token(self) -> str:
+        """Asynchronously fetch or return a valid OAuth2 bearer token."""
+        async with self._async_lock:
             now = time.monotonic()
             if self._access_token and now < (self._expires_at - 60):
                 return self._access_token
@@ -71,6 +73,15 @@ class MBOAuthTokenProvider(AbstractTokenProvider):
                 _LOGGER.debug("Obtained OAuth2 token valid for %s seconds", expires_in)
                 return self._access_token
 
+    def token(self) -> str:
+        """Synchronous token method called by kafka-python-ng thread."""
+        if self._access_token and time.monotonic() < (self._expires_at - 60):
+            return self._access_token
+        if self._loop is None:
+            raise RuntimeError("Event loop not configured for token provider")
+        future = asyncio.run_coroutine_threadsafe(self.async_token(), self._loop)
+        return future.result(timeout=25)
+
 
 class MercedesDataActStreamClient:
     """Manages the persistent Kafka consumer stream and signal state cache."""
@@ -91,40 +102,42 @@ class MercedesDataActStreamClient:
         self._consumer_group = consumer_group
         self._token_provider = token_provider
         self._on_message_callback = on_message_callback
-        self._consumer: AIOKafkaConsumer | None = None
-        self._task: asyncio.Task | None = None
-        self._running = False
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
 
         # In-memory state store: { device_id (VIN/WallboxID): { signal_name: value_dict } }
         self.devices: dict[str, dict[str, Any]] = {}
 
     async def start(self) -> None:
-        """Start the background Kafka consumer loop."""
-        if self._running:
+        """Start the background Kafka consumer thread."""
+        if self._thread and self._thread.is_alive():
             return
-        self._running = True
-        self._task = asyncio.create_task(self._consume_loop())
+        self._loop = asyncio.get_running_loop()
+        self._token_provider._loop = self._loop
+        self._stop_event.clear()
+        self._thread = threading.Thread(
+            target=self._consume_loop,
+            name="MercedesEUDataActKafka",
+            daemon=True,
+        )
+        self._thread.start()
 
     async def stop(self) -> None:
         """Stop the Kafka consumer gracefully."""
-        self._running = False
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-        if self._consumer:
-            await self._consumer.stop()
-            self._consumer = None
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            await asyncio.to_thread(self._thread.join, 5.0)
+        self._thread = None
 
-    async def _consume_loop(self) -> None:
+    def _consume_loop(self) -> None:
         """Continuously consume messages from the Mercedes-Benz Kafka topic."""
         ssl_context = ssl.create_default_context()
 
-        while self._running:
+        while not self._stop_event.is_set():
+            consumer: KafkaConsumer | None = None
             try:
-                self._consumer = AIOKafkaConsumer(
+                consumer = KafkaConsumer(
                     self._topic,
                     bootstrap_servers=self._bootstrap_servers,
                     group_id=self._consumer_group,
@@ -134,38 +147,36 @@ class MercedesDataActStreamClient:
                     ssl_context=ssl_context,
                     auto_offset_reset="latest",
                     enable_auto_commit=True,
+                    consumer_timeout_ms=1000,
                 )
-                await self._consumer.start()
                 _LOGGER.info(
                     "Connected to Mercedes-Benz EU Data Act Kafka topic '%s'",
                     self._topic,
                 )
 
-                async for msg in self._consumer:
-                    if not self._running:
-                        break
-                    await self._handle_raw_message(msg.value)
+                while not self._stop_event.is_set():
+                    for msg in consumer:
+                        if self._stop_event.is_set():
+                            break
+                        self._handle_raw_message(msg.value)
 
-            except asyncio.CancelledError:
-                break
             except KafkaError as err:
                 _LOGGER.error("Kafka stream error: %s. Reconnecting in 15s...", err)
-                await asyncio.sleep(15)
+                self._stop_event.wait(15)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.exception(
                     "Unexpected error in Mercedes-Benz stream: %s. Reconnecting in 30s...",
                     err,
                 )
-                await asyncio.sleep(30)
+                self._stop_event.wait(30)
             finally:
-                if self._consumer:
+                if consumer:
                     try:
-                        await self._consumer.stop()
+                        consumer.close()
                     except Exception:  # pylint: disable=broad-except
                         pass
-                    self._consumer = None
 
-    async def _handle_raw_message(self, raw_bytes: bytes | None) -> None:
+    def _handle_raw_message(self, raw_bytes: bytes | None) -> None:
         """Parse incoming JSON telemetry payload from Kafka Push API."""
         if not raw_bytes:
             return
@@ -175,7 +186,6 @@ class MercedesDataActStreamClient:
             _LOGGER.warning("Failed to decode Kafka payload: %s", err)
             return
 
-        # Extract device identifier (VIN for vehicles, deviceId/serial for wallboxes)
         device_id = (
             payload.get("vin")
             or payload.get("deviceId")
@@ -188,7 +198,6 @@ class MercedesDataActStreamClient:
 
         device_signals = self.devices.setdefault(device_id, {})
 
-        # Normalize signal structures (supports both flat signal maps and signal arrays)
         signals = payload.get("signals") or payload.get("data") or payload
         if isinstance(signals, list):
             for item in signals:
@@ -212,5 +221,7 @@ class MercedesDataActStreamClient:
                         "timestamp": payload.get("timestamp"),
                     }
 
-        # Notify Home Assistant entities
-        self._on_message_callback(device_id, device_signals)
+        if self._loop:
+            self._loop.call_soon_threadsafe(
+                self._on_message_callback, device_id, device_signals
+            )

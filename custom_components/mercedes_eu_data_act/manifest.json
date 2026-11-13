@@ -2,7 +2,7 @@
   "domain": "mercedes_eu_data_act",
   "name": "Mercedes-Benz EU Data Act",
   "codeowners": [
-    "DavidReds"
+    "@DavidReds"
   ],
   "config_flow": true,
   "dependencies": [],
@@ -11,8 +11,8 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/DavidReds/ha-mercedes-eu-data-act/issues",
   "requirements": [
-    "aiokafka>=0.11.0",
+    "kafka-python-ng>=2.2.2",
     "aiohttp>=3.9.0"
   ],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }

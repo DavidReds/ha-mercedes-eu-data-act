@@ -61,7 +61,7 @@ class MercedesEUDataActConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 scope=user_input.get(CONF_OAUTH_SCOPE, DEFAULT_OAUTH_SCOPE),
             )
             try:
-                await provider.token()
+                await provider.async_token()
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.error("Failed to authenticate with MB OAuth2: %s", err)
                 errors["base"] = "invalid_auth"
