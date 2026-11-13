@@ -9,9 +9,20 @@ import time
 from typing import Any, Callable
 
 import aiohttp
-from kafka import KafkaConsumer
-from kafka.errors import KafkaError
-from kafka.sasl.oauth import AbstractTokenProvider
+
+try:
+    from kafka.oauth.abstract import AbstractTokenProvider
+except ImportError:
+    class AbstractTokenProvider:  # type: ignore[no-redef]
+        """Fallback AbstractTokenProvider when kafka is not available."""
+        pass
+
+try:
+    from kafka import KafkaConsumer
+    from kafka.errors import KafkaError
+except ImportError:
+    KafkaConsumer = None  # type: ignore[assignment,misc]
+    KafkaError = Exception  # type: ignore[assignment,misc]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -135,6 +146,11 @@ class MercedesDataActStreamClient:
         ssl_context = ssl.create_default_context()
 
         while not self._stop_event.is_set():
+            if KafkaConsumer is None:
+                _LOGGER.error("kafka-python-ng is not installed or available")
+                self._stop_event.wait(30)
+                continue
+
             consumer: KafkaConsumer | None = None
             try:
                 consumer = KafkaConsumer(

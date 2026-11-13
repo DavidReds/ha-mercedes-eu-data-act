@@ -6,8 +6,11 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlow
+try:
+    from homeassistant.config_entries import ConfigFlowResult
+except ImportError:
+    from homeassistant.data_entry_flow import FlowResult as ConfigFlowResult  # type: ignore[assignment]
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
@@ -40,14 +43,14 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 )
 
 
-class MercedesEUDataActConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class MercedesEUDataActConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Mercedes-Benz EU Data Act."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial configuration step."""
         errors: dict[str, str] = {}
 

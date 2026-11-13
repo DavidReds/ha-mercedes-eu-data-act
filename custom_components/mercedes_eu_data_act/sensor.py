@@ -113,6 +113,10 @@ class MercedesDataActSensor(SensorEntity):
         raw_unit = initial_data.get("unit")
         if raw_unit in UNIT_MAP:
             dev_class, unit, state_class = UNIT_MAP[raw_unit]
+            if raw_unit == "%" and not any(
+                k in signal_name.lower() for k in ("battery", "soc", "state_of_charge")
+            ):
+                dev_class = None
             self._attr_device_class = dev_class
             self._attr_native_unit_of_measurement = unit
             self._attr_state_class = state_class
