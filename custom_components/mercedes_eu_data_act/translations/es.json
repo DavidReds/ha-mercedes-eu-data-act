@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mercedes-Benz EU Data Act",
+        "description": "Introduce tus credenciales OAuth2 de la plataforma API de Mercedes-Benz y los datos de tu tópico Kafka Push API.",
+        "data": {
+          "client_id": "Client ID (API Platform)",
+          "client_secret": "Client Secret (API Platform)",
+          "kafka_topic": "Tópico Kafka del Cliente",
+          "consumer_group": "Grupo de Consumidores Kafka (debe empezar por tu client name)",
+          "oauth_scope": "Scope OAuth2",
+          "token_url": "URL del Token OAuth2",
+          "kafka_bootstrap": "Servidor Bootstrap Kafka"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Credenciales OAuth2 inválidas o error conectando al servidor de autenticación."
+    },
+    "abort": {
+      "already_configured": "Este tópico de Kafka ya está configurado."
+    }
+  }
+}

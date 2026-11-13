@@ -1,0 +1,10 @@
+{
+  "name": "Mercedes-Benz EU Data Act",
+  "render_readme": true,
+  "domains": [
+    "sensor",
+    "binary_sensor",
+    "device_tracker"
+  ],
+  "iot_class": "Cloud Push"
+}

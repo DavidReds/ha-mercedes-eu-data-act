@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mercedes-Benz EU Data Act",
+        "description": "Enter your Mercedes-Benz Developer Portal API Platform OAuth2 credentials and Kafka Push API details.",
+        "data": {
+          "client_id": "API Platform Client ID",
+          "client_secret": "API Platform Client Secret",
+          "kafka_topic": "Customer Kafka Topic",
+          "consumer_group": "Kafka Consumer Group (must start with client name)",
+          "oauth_scope": "OAuth2 Scope",
+          "token_url": "OAuth2 Token URL",
+          "kafka_bootstrap": "Kafka Bootstrap Server"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid OAuth2 credentials or unreachable token endpoint."
+    },
+    "abort": {
+      "already_configured": "This Kafka topic is already configured."
+    }
+  }
+}
