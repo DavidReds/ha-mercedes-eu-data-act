@@ -1,26 +1,26 @@
 # Mercedes-Benz EU Data Act for Home Assistant
 
-Integración personalizada (*Custom Component*) para **Home Assistant** que consume telemetría en tiempo real de vehículos y cargadores (Wallbox) Mercedes-Benz mediante la API **Third Party Data Access EU Data Act** (`Push API` sobre Apache Kafka con autenticación `SASL_SSL` / `OAUTHBEARER`).
+Custom Component for **Home Assistant** that consumes real-time telemetry from Mercedes-Benz vehicles and chargers (Wallbox) using the **Third Party Data Access EU Data Act** API (`Push API` over Apache Kafka with `SASL_SSL` / `OAUTHBEARER` authentication).
 
-## Arquitectura Técnica
+## Technical Architecture
 
-La API **Third Party Data Access EU Data Act** de Mercedes-Benz no utiliza *polling* REST tradicional para telemetría, sino un flujo **Push en tiempo real sobre Apache Kafka** (`bootstrap.streaming.connect-business.net:443`).
-Esta integración:
+The Mercedes-Benz **Third Party Data Access EU Data Act** API does not use traditional REST polling for telemetry; instead, it uses a **real-time Push stream over Apache Kafka** (`bootstrap.streaming.connect-business.net:443`).
+This integration:
 
-1. Gestiona automáticamente la obtención y renovación de tokens **OAuth2 (`client_credentials`)** contra el servidor IAM de Mercedes-Benz.
-2. Mantiene un consumidor asíncrono (`aiokafka`) en segundo plano conectado a tu tópico exclusivo de Kafka.
-3. Crea dinámicamente dispositivos (por `VIN` o `deviceId`) y entidades (`sensor`, `binary_sensor`, `device_tracker`) conforme llegan señales de los paquetes contratados (`6001` a `6009`).
+1. Automatically manages obtaining and refreshing **OAuth2 (`client_credentials`)** tokens against the Mercedes-Benz IAM server.
+2. Maintains an asynchronous background consumer (`aiokafka`) connected to your dedicated Kafka topic.
+3. Dynamically creates devices (by `VIN` or `deviceId`) and entities (`sensor`, `binary_sensor`, `device_tracker`) as signals arrive from your subscribed data packages (`6001` through `6009`).
 
-## Prerrequisitos en Mercedes-Benz Developer Portal
+## Prerequisites in Mercedes-Benz Developer Portal
 
-1. Crear un proyecto en [Mercedes-Benz /developers](https://developer.mercedes-benz.com/products/3rd_party_data_access_eu_data_act/details) y suscribirte al producto **Third Party Data Access EU Data Act**.
-2. Obtener tus **API Platform Credentials** (`Client ID`, `Client Secret`, `Scope`) y el nombre de tu **Kafka Topic**.
-3. Activar el servicio *Data Act Service* en el vehículo/wallbox y completar el flujo de consentimiento del propietario (*Authorization Code Flow* + llamada al *Services API* para activar los paquetes `6001`–`6009`).
+1. Create a project in [Mercedes-Benz /developers](https://developer.mercedes-benz.com/products/3rd_party_data_access_eu_data_act/details) and subscribe to the **Third Party Data Access EU Data Act** product.
+2. Obtain your **API Platform Credentials** (`Client ID`, `Client Secret`, `Scope`) and your assigned **Kafka Topic** name.
+3. Activate the *Data Act Service* on the vehicle/wallbox and complete the owner consent flow (*Authorization Code Flow* + calling the *Services API* to enable packages `6001`–`6009`).
 
-## Instalación mediante HACS
+## Installation via HACS
 
-1. Sube este repositorio a tu cuenta de GitHub.
-2. En Home Assistant, abre **HACS** -> **Integraciones** -> menú superior derecho (`⋮`) -> **Repositorios personalizados**.
-3. Añade la URL de tu repositorio de GitHub y selecciona la categoría **Integration**.
-4. Instala **Mercedes-Benz EU Data Act** y reinicia Home Assistant.
-5. Ve a **Ajustes** -> **Dispositivos y servicios** -> **Añadir integración** -> busca **Mercedes-Benz EU Data Act**.
+1. Upload this repository to your GitHub account.
+2. In Home Assistant, open **HACS** -> **Integrations** -> top-right menu (`⋮`) -> **Custom repositories**.
+3. Add your GitHub repository URL and select the **Integration** category.
+4. Install **Mercedes-Benz EU Data Act** and restart Home Assistant.
+5. Go to **Settings** -> **Devices & services** -> **Add integration** -> search for **Mercedes-Benz EU Data Act**.
